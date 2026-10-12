@@ -290,6 +290,12 @@ input:focus, select:focus { border-color: var(--brass); outline: none; }
 .spot .price { margin-top: 1.1rem; font-size: 1.15rem; }
 .spot .btn { margin-top: 1.1rem; text-shadow: none; }
 
+/* the last bottle panel melts into the section colour, then a long eased strip carries dark -> light (no hard edge) */
+.spot:last-of-type::after { content: ""; position: absolute; inset: auto 0 0 0; height: clamp(9rem, 34%, 18rem); z-index: 1; pointer-events: none;
+                            background: linear-gradient(0deg, var(--deep) 0%, rgba(38,6,18,.9) 22%, rgba(38,6,18,.55) 50%, rgba(38,6,18,.2) 78%, rgba(38,6,18,0) 100%); }
+.spots-fade { height: clamp(9rem, 22vh, 15rem); margin-top: -1px;
+              background: linear-gradient(to bottom, #260612 0%, #2c0f1c 10%, #3d2030 24%, #5f4452 40%, #8c7882 56%, #b7a8af 72%, #d6cbd0 87%, var(--mist) 100%); }
+
 /* entrance: the text rises in and the bottle floats up when a panel scrolls into view */
 .js .spot-text > * { opacity: 0; transform: translateY(26px); transition: opacity .8s ease, transform .8s ease; }
 .js .spot.in .spot-text > * { opacity: 1; transform: none; }

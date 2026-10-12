@@ -23,12 +23,13 @@
 <section class="spots" aria-labelledby="open-tonight">
   <h2 id="open-tonight" class="sr-only">Open tonight</h2>
   {% for w in featured %}
-  <article class="spot{% if loop.index is even %} alt{% endif %}{% if loop.index <= 2 %} photo{% endif %}"
+  <article class="spot{% if loop.index is even %} alt{% endif %}{% if loop.index <= 3 %} photo{% endif %}"
            style="--bg: url('{{ url_for('static', filename='img/spot-%d.jpg'|format(loop.index)) }}')"
            data-type="{{ w.type }}" data-name="{{ w.name }}" data-region="{{ w.region }}"
-           data-year="{{ w.year }}" data-notes="{{ w.notes }}"{% if loop.index <= 2 %}
+           data-year="{{ w.year }}" data-notes="{{ w.notes }}"{% if loop.index <= 3 %}
            data-label="{{ url_for('static', filename='img/label-%d.jpg'|format(loop.index)) }}"
-           data-cap-decal="{{ url_for('static', filename=('img/cap-decal.png' if loop.first else 'img/cap-decal-%d.png'|format(loop.index))) }}"{% endif %}>
+           data-cap-decal="{{ url_for('static', filename=('img/cap-decal.png' if loop.first else 'img/cap-decal-%d.png'|format(loop.index))) }}"{% endif %}{% if loop.index == 3 %}
+           data-collar="{{ url_for('static', filename='img/collar-3.png') }}"{% endif %}>
     <div class="spot-inner">
       <div class="spot-text">
         <span class="spot-num">{{ '%02d'|format(loop.index) }}.</span>
@@ -39,11 +40,12 @@
         <p class="price">{{ w.price|kes }}</p>
         <a class="btn ghost small" href="{{ url_for('wines') }}#wine-{{ w.id }}">View details &rarr;</a>
       </div>
-      <div class="spot-bottle" aria-hidden="true">{% if loop.index <= 2 %}<img class="spot-fallback" src="{{ url_for('static', filename='img/bottle-%d.png'|format(loop.index)) }}" alt="">{% endif %}<canvas></canvas></div>
+      <div class="spot-bottle" aria-hidden="true">{% if loop.index <= 3 %}<img class="spot-fallback" src="{{ url_for('static', filename='img/bottle-%d.png'|format(loop.index)) }}" alt="">{% endif %}<canvas></canvas></div>
     </div>
   </article>
   {% endfor %}
 </section>
+<div class="spots-fade" aria-hidden="true"></div>
 
 <section class="section split">
   <div class="split-text">

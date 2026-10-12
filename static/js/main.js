@@ -138,15 +138,22 @@
     var COLORS = { red: [0x1a0a10, 0x5a0f22], white: [0x4d5e1f, 0xc9b98a], rose: [0x9a5560, 0xe9a0ad], sparkling: [0x1c2814, 0xb79a66] };
 
     function profile(type) {
-      var P = type === "burgundy" ? { R: 1, bt: 3.5, se: 5.4, nr: .31, H: 7.08, foil: 1.42 }
+      var P = type === "champagne" ? { R: 1.12, bt: 3.3, se: 5.6, nr: .31, H: 7.8, foil: 2.35 }
+            : type === "burgundy" ? { R: 1, bt: 3.5, se: 5.4, nr: .31, H: 7.08, foil: 1.42 }
             : type === "sparkling" ? { R: 1.12, bt: 3.9, se: 5.5, nr: .43, H: 7.8, foil: 2.2 }
             : type === "rose" ? { R: .96, bt: 4.7, se: 5.5, nr: .37, H: 8, foil: 1.3 }
             : { R: 1, bt: 4.3, se: 6.0, nr: .385, H: 8, foil: 1.3 };
       var pts = [new T.Vector2(0, .32), new T.Vector2(P.R * .45, .1), new T.Vector2(P.R * .86, 0), new T.Vector2(P.R * .97, .08), new T.Vector2(P.R, .3), new T.Vector2(P.R, P.bt)];
-      var n = 18;
-      for (var i = 1; i <= n; i++) {
-        var u = i / n, s = u * u * (3 - 2 * u);
-        pts.push(new T.Vector2(P.R + (P.nr - P.R) * s, P.bt + (P.se - P.bt) * u));
+      if (type === "champagne") {
+        // rounded champagne shoulder, traced from the photograph (radius, height)
+        var sh = [[1.12, 3.3], [1.03, 3.81], [.82, 4.33], [.62, 4.6], [.47, 4.97], [.36, 5.35], [.31, 5.6]];
+        new T.SplineCurve(sh.map(function (q) { return new T.Vector2(q[0], q[1]); })).getPoints(26).forEach(function (q, i) { if (i) pts.push(q); });
+      } else {
+        var n = 18;
+        for (var i = 1; i <= n; i++) {
+          var u = i / n, s = u * u * (3 - 2 * u);
+          pts.push(new T.Vector2(P.R + (P.nr - P.R) * s, P.bt + (P.se - P.bt) * u));
+        }
       }
       pts.push(new T.Vector2(P.nr, P.H - .45), new T.Vector2(P.nr + .05, P.H - .4), new T.Vector2(P.nr + .05, P.H - .05), new T.Vector2(P.nr, P.H), new T.Vector2(0, P.H));
       return { P: P, pts: pts };
@@ -227,25 +234,32 @@
     var VERT = "varying vec3 vN; varying vec3 vW; varying vec3 vL;" +
       "void main(){ vL = position; vec4 w = modelMatrix * vec4(position,1.); vW = w.xyz; vN = normalize(mat3(modelMatrix) * normal);" +
       "gl_Position = projectionMatrix * viewMatrix * w; }";
-    var GLASS_FRAG = "varying vec3 vN; varying vec3 vW; varying vec3 vL;" +
+    var GLASS_FRAG = "uniform float uStrip; uniform vec3 uRim; varying vec3 vN; varying vec3 vW; varying vec3 vL;" +
       "void main(){ vec3 V = normalize(cameraPosition - vW); vec3 N = normalize(vN);" +
       "float nv = clamp(dot(N,V),0.,1.); float fres = pow(1.-nv, 3.);" +
       "vec3 R = reflect(-V,N); float az = atan(R.x, R.z);" +
       "float strip = (1.-smoothstep(0.,.32,abs(az-.55)))*.34 + (1.-smoothstep(0.,.2,abs(az+.95)))*.2;" +
-      "strip *= smoothstep(.2,1.4,vL.y) * (1.-smoothstep(5.4,6.6,vL.y)*.6);" +
+      "strip *= smoothstep(.2,1.4,vL.y) * (1.-smoothstep(5.4,6.6,vL.y)*.6) * uStrip;" +
       "float k = clamp(fres*1.5 + strip, 0., 1.);" +
-      "vec3 col = mix(vec3(.05,.035,.03), vec3(1.,.66,.32), k);" +
+      "vec3 col = mix(vec3(.05,.035,.03), uRim, k);" +
       "gl_FragColor = vec4(col, clamp(.05 + fres*.8 + strip*.5, 0., .95)); }";
-    // Per-wine look: liquid colours, swirl tint, cut-surface colours, capsule, crest tint and bubble colour
+    // Per-wine look: bottle shape, liquid colours, capsule, label/crest placement, bubbles
+    var STILL = { profile: "burgundy", level: 4.5, frAdd: .06, head: null, nb: 34, bubbleSize: .13, bubbleSpeed: 1,
+                  label: { arc: 2.0, h: 2.18, y: 1.63 }, decal: { y: 6.05, h: .54, arc: 1.9 }, glassStrip: 1, glassRim: [1, .66, .32], foilEnv: 1.1 };
+    function look(o) { var r = {}; for (var k in STILL) r[k] = STILL[k]; for (var j in o) r[j] = o[j]; return r; }
     var WINE_STYLES = {
-      red:       { deep: [.105, .008, .03], light: [.52, .06, .12], swirl: [.07, .009, .02], capA: [.36, .04, .09], capB: [.85, .42, .36],
-                   foil: 0x3d0818, foilMetal: .6, foilRough: .28, decalTint: 0xe8c890, bubble: ["255,200,200", "255,150,160", "255,120,130"] },
-      white:     { deep: [.40, .31, .04], light: [.93, .83, .38], swirl: [.06, .05, .008], capA: [.62, .52, .14], capB: [.97, .91, .60],
-                   foil: 0xd9ccaa, foilMetal: .5, foilRough: .34, decalTint: 0xffffff, bubble: ["255,248,210", "255,236,160", "255,225,130"] },
-      rose:      { deep: [.42, .12, .15], light: [.92, .46, .52], swirl: [.07, .02, .03], capA: [.6, .22, .26], capB: [.97, .7, .72],
-                   foil: 0x9a5560, foilMetal: .55, foilRough: .3, decalTint: 0xf2d9b0, bubble: ["255,220,220", "255,180,190", "255,150,160"] },
-      sparkling: { deep: [.36, .30, .06], light: [.9, .82, .42], swirl: [.06, .05, .01], capA: [.55, .48, .14], capB: [.95, .9, .6],
-                   foil: 0xb79a66, foilMetal: .7, foilRough: .26, decalTint: 0xffffff, bubble: ["255,250,215", "255,240,170", "255,230,140"] }
+      red:       look({ deep: [.105, .008, .03], light: [.52, .06, .12], swirl: [.07, .009, .02], capA: [.36, .04, .09], capB: [.85, .42, .36],
+                        foil: 0x3d0818, foilMetal: .6, foilRough: .28, decalTint: 0xe8c890, bubble: ["255,200,200", "255,150,160", "255,120,130"] }),
+      white:     look({ deep: [.40, .31, .04], light: [.93, .83, .38], swirl: [.06, .05, .008], capA: [.62, .52, .14], capB: [.97, .91, .60],
+                        foil: 0xd9ccaa, foilMetal: .5, foilRough: .34, decalTint: 0xffffff, bubble: ["255,248,210", "255,236,160", "255,225,130"] }),
+      rose:      look({ deep: [.42, .12, .15], light: [.92, .46, .52], swirl: [.07, .02, .03], capA: [.6, .22, .26], capB: [.97, .7, .72],
+                        foil: 0x9a5560, foilMetal: .55, foilRough: .3, decalTint: 0xf2d9b0, bubble: ["255,220,220", "255,180,190", "255,150,160"] }),
+      // Champagne: tall sloped shoulder, dark green glass, gold foil head and neck, fine fast bubbles
+      sparkling: look({ profile: "champagne", level: 5.0, frAdd: .05, head: { r: .42, h: .87 }, nb: 90, bubbleSize: .095, bubbleSpeed: 1.7,
+                        deep: [.03, .05, .014], light: [.34, .40, .06], swirl: [.014, .024, .005], capA: [.2, .22, .05], capB: [.55, .55, .2],
+                        glassStrip: 2.1, glassRim: [.92, .95, .38], foilEnv: 1.5,
+                        foil: 0xd4a13a, foilMetal: .8, foilRough: .3, decalTint: 0xffffff, bubble: ["255,250,215", "255,240,170", "255,230,140"],
+                        label: { arc: 2.128, h: 1.699, y: 1.34 }, decal: { y: 6.04, h: .782, arc: 2.0 } })
     };
     var WINE_FRAG = "uniform float uTime; uniform float uLevel; uniform float uCap; uniform float uSwirl; uniform vec2 uTilt;" +
       "uniform vec3 uDeep; uniform vec3 uRuby; uniform vec3 uSwirlCol; uniform vec3 uCapA; uniform vec3 uCapB;" +
@@ -264,9 +278,9 @@
       "gl_FragColor = vec4(col, a); }";
 
     function makeWineBottle(d, scene) {
-      var pr = profile("burgundy"), P = pr.P, pts = pr.pts;
       var S = WINE_STYLES[d.type] || WINE_STYLES.red;
-      var LEVEL = 4.5, WY = -P.H / 2, loaded = 0;
+      var pr = profile(S.profile), P = pr.P, pts = pr.pts;
+      var LEVEL = S.level, WY = -P.H / 2, loaded = 0, wanted = d.collar ? 3 : 2;
       var group = new T.Group(), loader = new T.TextureLoader();
       function load(url) {
         var t = loader.load(url, function () { loaded++; redrawAll(); });
@@ -274,7 +288,8 @@
       }
 
       // glass shell: nearly clear, warm rim light like the studio photograph
-      var glass = new T.ShaderMaterial({ vertexShader: VERT, fragmentShader: GLASS_FRAG, transparent: true, depthWrite: false });
+      var glass = new T.ShaderMaterial({ uniforms: { uStrip: { value: S.glassStrip }, uRim: { value: new T.Vector3().fromArray(S.glassRim) } },
+                                         vertexShader: VERT, fragmentShader: GLASS_FRAG, transparent: true, depthWrite: false });
       var shell = new T.Mesh(new T.LatheGeometry(pts, 72), glass); shell.renderOrder = 3; group.add(shell);
 
       // wine: inner lathe, clipped by a tilting plane so the surface can slosh
@@ -309,28 +324,48 @@
       surface.renderOrder = 1; surface.frustumCulled = false; scene.add(surface);
 
       // bubbles that drift up through the wine
-      var NB = 34, bpos = new Float32Array(NB * 3), bub = [];
-      for (var i = 0; i < NB; i++) bub.push({ y: .8 + Math.random() * (LEVEL - 1), a: Math.random() * 6.283, rr: Math.random() * .8, v: .004 + Math.random() * .009, ph: Math.random() * 6.283 });
+      var NB = S.nb, bpos = new Float32Array(NB * 3), bub = [];
+      for (var i = 0; i < NB; i++) bub.push({ y: .8 + Math.random() * (LEVEL - 1), a: Math.random() * 6.283, rr: Math.random() * .8, v: (.004 + Math.random() * .009) * S.bubbleSpeed, ph: Math.random() * 6.283 });
       var bg = new T.BufferGeometry(); bg.setAttribute("position", new T.BufferAttribute(bpos, 3));
       var dot = document.createElement("canvas"); dot.width = dot.height = 32; var dg = dot.getContext("2d");
       var rg = dg.createRadialGradient(16, 16, 0, 16, 16, 16); rg.addColorStop(0, "rgba(" + S.bubble[0] + ",.95)"); rg.addColorStop(.5, "rgba(" + S.bubble[1] + ",.35)"); rg.addColorStop(1, "rgba(" + S.bubble[2] + ",0)");
       dg.fillStyle = rg; dg.fillRect(0, 0, 32, 32);
-      var bubbles = new T.Points(bg, new T.PointsMaterial({ map: new T.CanvasTexture(dot), size: .13, transparent: true, depthWrite: false, opacity: .8 }));
+      var bubbles = new T.Points(bg, new T.PointsMaterial({ map: new T.CanvasTexture(dot), size: S.bubbleSize, transparent: true, depthWrite: false, opacity: .8 }));
       bubbles.renderOrder = 2; bubbles.frustumCulled = false; group.add(bubbles);
 
       // foil capsule with the crest and lettering taken from the photograph
-      var foil = new T.MeshStandardMaterial({ color: S.foil, metalness: S.foilMetal, roughness: S.foilRough, envMap: env, envMapIntensity: 1.1 });
-      var fr = P.nr + .06;
+      var foil = new T.MeshStandardMaterial({ color: S.foil, metalness: S.foilMetal, roughness: S.foilRough, envMap: env, envMapIntensity: S.foilEnv });
+      var fr = P.nr + S.frAdd;
       var cap = new T.Mesh(new T.CylinderGeometry(fr, fr + .01, P.foil, 48), foil); cap.position.y = P.H - P.foil / 2 + .02; group.add(cap);
-      var top = new T.Mesh(new T.CylinderGeometry(fr + .03, fr + .03, .1, 48), foil); top.position.y = P.H + .02; group.add(top);
+      var topR = S.head ? S.head.r + .005 : fr + .03;
+      var top = new T.Mesh(new T.CylinderGeometry(topR, topR, .1, 48), foil); top.position.y = P.H + .02; group.add(top);
       var rim = new T.Mesh(new T.CylinderGeometry(fr + .02, fr + .02, .08, 48), foil); rim.position.y = P.H - P.foil + .06; group.add(rim);
+      if (S.head) {      // crimped foil head over the wire cage
+        var headMat = new T.MeshStandardMaterial({ color: S.foil, metalness: S.foilMetal, roughness: S.foilRough + .05, envMap: env, envMapIntensity: S.foilEnv, flatShading: true });
+        var head = new T.Mesh(new T.CylinderGeometry(S.head.r, S.head.r + .015, S.head.h, 18, 3), headMat);
+        head.position.y = P.H - S.head.h / 2 + .02; group.add(head);
+        var neckRing = new T.Mesh(new T.CylinderGeometry(S.head.r - .02, fr + .015, .16, 24), foil);
+        neckRing.position.y = P.H - S.head.h - .05; group.add(neckRing);
+      }
+      var dc = S.decal;
       var decalMat = new T.MeshBasicMaterial({ map: load(d.capDecal), transparent: true, toneMapped: false, color: S.decalTint, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
-      var decal = new T.Mesh(new T.CylinderGeometry(fr + .006, fr + .006, .54, 40, 1, true, -.95, 1.9), decalMat); decal.position.y = 6.05; group.add(decal);
+      var decal = new T.Mesh(new T.CylinderGeometry(fr + .016, fr + .016, dc.h, 40, 1, true, -dc.arc / 2, dc.arc), decalMat); decal.position.y = dc.y; group.add(decal);
+
+      // seal collar around the neck (champagne): dark band plus the photographed crest on the front
+      if (d.collar) {
+        var cy = 5.0, ch = .865, crT = .52, crB = .68;
+        var band = new T.Mesh(new T.CylinderGeometry(crT - .004, crB - .004, ch, 48, 1, true),
+          new T.MeshStandardMaterial({ color: 0x0b0807, metalness: .2, roughness: .45, envMap: env, envMapIntensity: .3, side: T.DoubleSide }));
+        band.position.y = cy; group.add(band);
+        var collarMat = new T.MeshBasicMaterial({ map: load(d.collar), transparent: true, alphaTest: .04, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -2 });
+        var collar = new T.Mesh(new T.CylinderGeometry(crT, crB, ch, 48, 1, true, -Math.PI / 2, Math.PI), collarMat);
+        collar.position.y = cy; group.add(collar);
+      }
 
       // labels (front label is the photographed one)
       var paper = function (map) { return new T.MeshStandardMaterial({ map: map, roughness: .85, metalness: 0, envMap: env, envMapIntensity: .25 }); };
-      var lr = P.R + .014, ly = 1.63;
-      var front = new T.Mesh(new T.CylinderGeometry(lr, lr, 2.18, 64, 1, true, -1.0, 2.0), paper(load(d.label))); front.position.y = ly; group.add(front);
+      var lr = P.R + .014, lb = S.label, ly = lb.y;
+      var front = new T.Mesh(new T.CylinderGeometry(lr, lr, lb.h, 64, 1, true, -lb.arc / 2, lb.arc), paper(load(d.label))); front.position.y = ly; group.add(front);
       var back = new T.Mesh(new T.CylinderGeometry(lr, lr, 1.5, 48, 1, true, Math.PI - .65, 1.3), paper(backLabel(d))); back.position.y = ly + .1; group.add(back);
 
       group.position.y = WY;
@@ -367,7 +402,7 @@
         }
         bg.attributes.position.needsUpdate = true;
       }
-      return { pivot: pivot, H: P.H, R: P.R, wine: true, update: update, ready: function () { return loaded >= 2; } };
+      return { pivot: pivot, H: P.H, R: P.R, wine: true, update: update, ready: function () { return loaded >= wanted; } };
     }
 
     var items = spots.map(function (el) {
@@ -376,7 +411,7 @@
       var key = new T.DirectionalLight(0xffcf8a, 1.3); key.position.set(-5, 6, 8); scene.add(key);
       var rim = new T.DirectionalLight(0xff8a5a, 1.1); rim.position.set(6, 3, -4); scene.add(rim);
       scene.add(new T.AmbientLight(0x442030, .6));
-      var b = d.label ? makeWineBottle({ type: d.type, label: d.label, capDecal: d.capDecal, name: d.name, region: d.region, year: d.year, notes: d.notes }, scene)
+      var b = d.label ? makeWineBottle({ type: d.type, label: d.label, capDecal: d.capDecal, collar: d.collar, name: d.name, region: d.region, year: d.year, notes: d.notes }, scene)
                       : makeBottle({ type: d.type, name: d.name, region: d.region, year: d.year, notes: d.notes });
       scene.add(b.pivot);
       return { el: el, canvas: canvas, ctx: canvas.getContext("2d"), scene: scene, cam: new T.PerspectiveCamera(24, 1, 1, 100),
