@@ -19,9 +19,11 @@
     </div>
     <p class="count" id="count" aria-live="polite"></p>
 
-    <div id="wine-list">
+    <div id="wine-list" class="wine-grid">
       {% for w in wines %}
-      <article class="wine" id="wine-{{ w.id }}" data-type="{{ w.type }}">
+      <article class="wine" id="wine-{{ w.id }}" data-type="{{ w.type }}" data-real="1"
+               data-name="{{ w.name }}" data-region="{{ w.region }}" data-year="{{ w.year }}" data-notes="{{ w.notes }}">
+        <div class="wine-bottle" aria-hidden="true"><canvas></canvas></div>
         <button class="row" type="button" aria-expanded="false" aria-controls="detail-{{ w.id }}">
           <span class="dot {{ w.type }}"></span>
           <span>
@@ -43,4 +45,5 @@
     </div>
   </div>
 </section>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 {% endblock %}

@@ -11,15 +11,31 @@
 </section>
 
 <section class="section split">
-  <div class="split-media">
-    <img src="{{ url_for('static', filename='img/hero-poster.jpg') }}" alt="Red wine being poured into a glass" loading="lazy">
-  </div>
   <div class="split-text">
     <h2>Wine first, then dinner</h2>
     <p>We opened {{ restaurant.name }} to make good wine easy to enjoy. The cellar holds about 200 bottles
       from small growers, and most are available by the glass.</p>
     <p>The kitchen keeps the menu short and changes it with the seasons, so every plate has a wine
       worth pouring alongside it.</p>
+  </div>
+</section>
+
+<section class="stage" data-bucket="1" aria-labelledby="on-ice"
+         data-label1="{{ url_for('static', filename='img/label-1.jpg') }}" data-cap1="{{ url_for('static', filename='img/cap-decal.png') }}"
+         data-name1="Pinot Noir Réserve" data-region1="Burgundy, France" data-year1="2019"
+         data-label2="{{ url_for('static', filename='img/label-2.jpg') }}" data-cap2="{{ url_for('static', filename='img/cap-decal-2.png') }}"
+         data-name2="Chablis Premier Cru" data-region2="Chablis, France"
+         data-label3="{{ url_for('static', filename='img/label-3.jpg') }}" data-cap3="{{ url_for('static', filename='img/cap-decal-3.png') }}"
+         data-collar3="{{ url_for('static', filename='img/collar-3.png') }}"
+         data-name3="Brut Premier" data-region3="Reims, France">
+  <div class="stage-inner">
+    <div class="stage-text">
+      <span class="stage-kicker">On the table tonight</span>
+      <h2 id="on-ice">Cold, copper and ready to pour</h2>
+      <p>A red, a white and a sparkling, nested in ice. Scroll to turn the bucket and see every label.</p>
+      <p><a class="btn ghost" href="{{ url_for('wines') }}">Browse the wine list</a></p>
+    </div>
+    <div class="stage-canvas" aria-hidden="true"><canvas></canvas></div>
   </div>
 </section>
 
@@ -37,4 +53,5 @@
     </div>
   </div>
 </section>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 {% endblock %}

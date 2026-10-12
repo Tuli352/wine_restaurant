@@ -87,7 +87,8 @@
 
   // ----- Home: "Open tonight" bottles turn a full 360 as you scroll past -----
   (function () {
-    var spots = Array.prototype.slice.call(document.querySelectorAll(".spot"));
+    // Home panels (.spot) and wine-list cards (.wine[data-real]) share the same 3D bottle renderer
+    var spots = Array.prototype.slice.call(document.querySelectorAll(".spot, .wine[data-real], [data-bucket]"));
     if (!spots.length) return;
 
     if ("IntersectionObserver" in window) {
@@ -97,7 +98,11 @@
       spots.forEach(function (s) { rio.observe(s); });
     } else { spots.forEach(function (s) { s.classList.add("in"); }); }
 
-    function start() { if (window.THREE) buildBottles(spots); }
+    function start() {
+      // No three.js or no WebGL: hide the empty bottle panels on the wine list instead of leaving blank boxes
+      try { if (!window.THREE) throw new Error("no three"); buildBottles(spots); }
+      catch (err) { document.documentElement.classList.add("no-3d"); }
+    }
     if (document.fonts && document.fonts.load) {
       Promise.all([document.fonts.load('600 40px "Bodoni Moda"'), document.fonts.load('italic 500 30px "Bodoni Moda"')])
         .then(start, start);
@@ -280,7 +285,8 @@
     function makeWineBottle(d, scene) {
       var S = WINE_STYLES[d.type] || WINE_STYLES.red;
       var pr = profile(S.profile), P = pr.P, pts = pr.pts;
-      var LEVEL = S.level, WY = -P.H / 2, loaded = 0, wanted = d.collar ? 3 : 2;
+      var LEVEL = S.level, WY = -P.H / 2, loaded = 0,
+          wanted = (d.label ? 1 : 0) + (d.capDecal ? 1 : 0) + (d.collar ? 1 : 0);   // photographed assets still loading
       var group = new T.Group(), loader = new T.TextureLoader();
       function load(url) {
         var t = loader.load(url, function () { loaded++; redrawAll(); });
@@ -347,9 +353,11 @@
         var neckRing = new T.Mesh(new T.CylinderGeometry(S.head.r - .02, fr + .015, .16, 24), foil);
         neckRing.position.y = P.H - S.head.h - .05; group.add(neckRing);
       }
-      var dc = S.decal;
-      var decalMat = new T.MeshBasicMaterial({ map: load(d.capDecal), transparent: true, toneMapped: false, color: S.decalTint, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
-      var decal = new T.Mesh(new T.CylinderGeometry(fr + .016, fr + .016, dc.h, 40, 1, true, -dc.arc / 2, dc.arc), decalMat); decal.position.y = dc.y; group.add(decal);
+      if (d.capDecal) {   // wines without a photographed crest keep a plain capsule
+        var dc = S.decal;
+        var decalMat = new T.MeshBasicMaterial({ map: load(d.capDecal), transparent: true, toneMapped: false, color: S.decalTint, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
+        var decal = new T.Mesh(new T.CylinderGeometry(fr + .016, fr + .016, dc.h, 40, 1, true, -dc.arc / 2, dc.arc), decalMat); decal.position.y = dc.y; group.add(decal);
+      }
 
       // seal collar around the neck (champagne): dark band plus the photographed crest on the front
       if (d.collar) {
@@ -364,8 +372,9 @@
 
       // labels (front label is the photographed one)
       var paper = function (map) { return new T.MeshStandardMaterial({ map: map, roughness: .85, metalness: 0, envMap: env, envMapIntensity: .25 }); };
-      var lr = P.R + .014, lb = S.label, ly = lb.y;
-      var front = new T.Mesh(new T.CylinderGeometry(lr, lr, lb.h, 64, 1, true, -lb.arc / 2, lb.arc), paper(load(d.label))); front.position.y = ly; group.add(front);
+      // photographed label when given, otherwise the drawn Oriel label sized to its proportions
+      var lr = P.R + .014, lb = d.label ? S.label : { arc: 1.9 / P.R, h: 2.17, y: 1.65 }, ly = lb.y;
+      var front = new T.Mesh(new T.CylinderGeometry(lr, lr, lb.h, 64, 1, true, -lb.arc / 2, lb.arc), paper(d.label ? load(d.label) : frontLabel(d))); front.position.y = ly; group.add(front);
       var back = new T.Mesh(new T.CylinderGeometry(lr, lr, 1.5, 48, 1, true, Math.PI - .65, 1.3), paper(backLabel(d))); back.position.y = ly + .1; group.add(back);
 
       group.position.y = WY;
@@ -405,19 +414,123 @@
       return { pivot: pivot, H: P.H, R: P.R, wine: true, update: update, ready: function () { return loaded >= wanted; } };
     }
 
+    // ===== Static bottle (no liquid): used inside the ice bucket where the glass is dark anyway =====
+    function staticBottle(type, u) {
+      var S = WINE_STYLES[type] || WINE_STYLES.red, pr = profile(S.profile), P = pr.P;
+      var group = new T.Group(), loader = new T.TextureLoader();
+      function tex(url, bad) {
+        var t = loader.load(url, function () { redrawAll(); }, undefined, function () { if (bad) bad(); redrawAll(); });
+        t.encoding = T.sRGBEncoding; t.anisotropy = 8; return t;
+      }
+      var gcol = type === "white" ? 0x59651f : type === "sparkling" ? 0x1c2814 : type === "rose" ? 0x9a5560 : 0x2a0a14;
+      group.add(new T.Mesh(new T.LatheGeometry(pr.pts, 72),
+        new T.MeshStandardMaterial({ color: gcol, metalness: .25, roughness: .08, envMap: env, envMapIntensity: 1.6 })));
+
+      var foil = new T.MeshStandardMaterial({ color: S.foil, metalness: S.foilMetal, roughness: S.foilRough, envMap: env, envMapIntensity: S.foilEnv });
+      var fr = P.nr + S.frAdd;
+      var cap = new T.Mesh(new T.CylinderGeometry(fr, fr + .01, P.foil, 48), foil); cap.position.y = P.H - P.foil / 2 + .02; group.add(cap);
+      var topR = S.head ? S.head.r + .005 : fr + .03;
+      var top = new T.Mesh(new T.CylinderGeometry(topR, topR, .1, 48), foil); top.position.y = P.H + .02; group.add(top);
+      var rim = new T.Mesh(new T.CylinderGeometry(fr + .02, fr + .02, .08, 48), foil); rim.position.y = P.H - P.foil + .06; group.add(rim);
+      if (S.head) {
+        var headMat = new T.MeshStandardMaterial({ color: S.foil, metalness: S.foilMetal, roughness: S.foilRough + .05, envMap: env, envMapIntensity: S.foilEnv, flatShading: true });
+        var head = new T.Mesh(new T.CylinderGeometry(S.head.r, S.head.r + .015, S.head.h, 18, 3), headMat);
+        head.position.y = P.H - S.head.h / 2 + .02; group.add(head);
+        var neckRing = new T.Mesh(new T.CylinderGeometry(S.head.r - .02, fr + .015, .16, 24), foil);
+        neckRing.position.y = P.H - S.head.h - .05; group.add(neckRing);
+      }
+      if (u.cap) {      // crest printed on the capsule
+        var dc = S.decal, decal;
+        var decalMat = new T.MeshBasicMaterial({ map: tex(u.cap, function () { decal.visible = false; }), transparent: true, toneMapped: false, color: S.decalTint,
+                                                 depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
+        decal = new T.Mesh(new T.CylinderGeometry(fr + .016, fr + .016, dc.h, 40, 1, true, -dc.arc / 2, dc.arc), decalMat); decal.position.y = dc.y; group.add(decal);
+      }
+      if (u.collar) {   // champagne neck collar
+        var cy = 5.0, ch = .865, crT = .52, crB = .68, collar;
+        var band = new T.Mesh(new T.CylinderGeometry(crT - .004, crB - .004, ch, 48, 1, true),
+          new T.MeshStandardMaterial({ color: 0x0b0807, metalness: .2, roughness: .45, envMap: env, envMapIntensity: .3, side: T.DoubleSide }));
+        band.position.y = cy; group.add(band);
+        var collarMat = new T.MeshBasicMaterial({ map: tex(u.collar, function () { collar.visible = false; }), transparent: true, alphaTest: .04, toneMapped: false,
+                                                  polygonOffset: true, polygonOffsetFactor: -2 });
+        collar = new T.Mesh(new T.CylinderGeometry(crT, crB, ch, 48, 1, true, -Math.PI / 2, Math.PI), collarMat);
+        collar.position.y = cy; group.add(collar);
+      }
+
+      var paper = function (map) { return new T.MeshStandardMaterial({ map: map, roughness: .85, metalness: 0, envMap: env, envMapIntensity: .25 }); };
+      var lr = P.R + .014, lb = u.label ? S.label : { arc: 1.9 / P.R, h: 2.17, y: 1.65 };
+      // photographed label when it loads; the drawn Oriel label takes over if the file is missing
+      var lmat = paper(u.label ? tex(u.label, function () { lmat.map = frontLabel(u.meta); lmat.needsUpdate = true; }) : frontLabel(u.meta));
+      var front = new T.Mesh(new T.CylinderGeometry(lr, lr, lb.h, 64, 1, true, -lb.arc / 2, lb.arc), lmat); front.position.y = lb.y; group.add(front);
+      var back = new T.Mesh(new T.CylinderGeometry(lr, lr, 1.5, 48, 1, true, Math.PI - .65, 1.3), paper(backLabel({ notes: "Served ice cold at the table." })));
+      back.position.y = lb.y + .1; group.add(back);
+      return { group: group, H: P.H };
+    }
+
+    // ===== Ice bucket: hammered copper bowl, brass handles, ice, and three bottles that turn together (about page) =====
+    function makeBucket(d) {
+      var root = new T.Group();
+
+      // hammered finish: a bumpy height map so the copper catches the light in dimples
+      var bc = document.createElement("canvas"); bc.width = bc.height = 256;
+      var bx = bc.getContext("2d"); bx.fillStyle = "#808080"; bx.fillRect(0, 0, 256, 256);
+      for (var k = 0; k < 420; k++) {
+        var px = Math.random() * 256, py = Math.random() * 256, pr = 8 + Math.random() * 16, light = Math.random() < .5;
+        var pg = bx.createRadialGradient(px, py, 0, px, py, pr);
+        pg.addColorStop(0, light ? "rgba(255,255,255,.4)" : "rgba(0,0,0,.4)"); pg.addColorStop(1, "rgba(128,128,128,0)");
+        bx.fillStyle = pg; bx.fillRect(px - pr, py - pr, pr * 2, pr * 2);
+      }
+      var bump = new T.CanvasTexture(bc); bump.wrapS = bump.wrapT = T.RepeatWrapping; bump.repeat.set(4, 1.5);
+
+      var copper = new T.MeshStandardMaterial({ color: 0xb8733a, metalness: 1, roughness: .3, envMap: env, envMapIntensity: 1.7, side: T.DoubleSide, bumpMap: bump, bumpScale: 1.4 });
+      var brass = new T.MeshStandardMaterial({ color: 0xc9a05a, metalness: 1, roughness: .28, envMap: env, envMapIntensity: 1.6 });
+      var prof = [[0, 0], [1.8, 0], [2.0, .25], [2.3, .45], [3.2, .9], [4.2, 1.7], [4.9, 2.7], [5.2, 3.6], [5.3, 3.7], [5.2, 3.8], [5.05, 3.7],
+                  [4.95, 3.4], [4.35, 2.4], [3.2, 1.7], [0, 1.5]].map(function (p) { return new T.Vector2(p[0], p[1]); });
+      root.add(new T.Mesh(new T.LatheGeometry(prof, 72), copper));
+      [-1, 1].forEach(function (s) {          // ring handles on each side
+        var ring = new T.Mesh(new T.TorusGeometry(.62, .13, 16, 40), brass); ring.position.set(s * 5.75, 2.9, 0); root.add(ring);
+        var boss = new T.Mesh(new T.SphereGeometry(.28, 20, 16), brass); boss.position.set(s * 5.2, 3.35, 0); root.add(boss);
+      });
+
+      // ice piled in the bowl
+      var iceMat = new T.MeshStandardMaterial({ color: 0xe4f4ff, metalness: .05, roughness: .06, transparent: true, opacity: .5,
+                                                envMap: env, envMapIntensity: 2, flatShading: true, depthWrite: false });
+      for (var n = 0; n < 48; n++) {
+        var iy = 2.45 + Math.random() * 1.7, ia = Math.random() * 6.283, ir = Math.sqrt(Math.random()) * (3.4 + (iy - 2.45) * .7), is = .85 + Math.random() * .8;
+        var cube = new T.Mesh(new T.BoxGeometry(is, is * (.8 + Math.random() * .3), is), iceMat);
+        cube.position.set(Math.cos(ia) * ir, iy, Math.sin(ia) * ir);
+        cube.rotation.set(Math.random() * 3, Math.random() * 3, Math.random() * 3); root.add(cube);
+      }
+
+      // red, white and sparkling, leaning the way they do in the photograph
+      [{ type: "red", x: -2.6, z: .35, lean: .13, ry: .1 },
+       { type: "white", x: 0, z: 0, lean: -.03, ry: 0 },
+       { type: "sparkling", x: 2.4, z: .4, lean: -.3, ry: -.12 }].forEach(function (s, i) {
+        var m = i + 1;
+        var b = staticBottle(s.type, { label: d["label" + m], cap: d["cap" + m], collar: d["collar" + m],
+                                       meta: { name: d["name" + m] || "Oriel", region: d["region" + m] || "France", year: d["year" + m] || "", notes: "" } });
+        b.group.rotation.y = s.ry;
+        var holder = new T.Group(); holder.position.set(s.x, 2.7, s.z); holder.rotation.z = s.lean; holder.add(b.group);
+        root.add(holder);
+      });
+
+      root.position.y = -5.3;
+      var pivot = new T.Group(); pivot.add(root);
+      return { pivot: pivot, H: 10.8, R: 6.5, bucket: true };
+    }
+
     var items = spots.map(function (el) {
       var canvas = el.querySelector("canvas"), d = el.dataset;
       var scene = new T.Scene(); scene.environment = env;
       var key = new T.DirectionalLight(0xffcf8a, 1.3); key.position.set(-5, 6, 8); scene.add(key);
       var rim = new T.DirectionalLight(0xff8a5a, 1.1); rim.position.set(6, 3, -4); scene.add(rim);
       scene.add(new T.AmbientLight(0x442030, .6));
-      var b = d.label ? makeWineBottle({ type: d.type, label: d.label, capDecal: d.capDecal, collar: d.collar, name: d.name, region: d.region, year: d.year, notes: d.notes }, scene)
+      var b = d.bucket ? makeBucket(d) : (d.label || d.real) ? makeWineBottle({ type: d.type, label: d.label, capDecal: d.capDecal, collar: d.collar, name: d.name, region: d.region, year: d.year, notes: d.notes }, scene)
                       : makeBottle({ type: d.type, name: d.name, region: d.region, year: d.year, notes: d.notes });
       scene.add(b.pivot);
       return { el: el, canvas: canvas, ctx: canvas.getContext("2d"), scene: scene, cam: new T.PerspectiveCamera(24, 1, 1, 100),
                b: b, rot: 0, target: 0, visible: false, w: 0, h: 0, baseFrac: 1, gl: false };
     });
-    redrawAll = function () { items.forEach(function (it) { if (it.b.wine) draw(it); }); };
+    redrawAll = function () { items.forEach(function (it) { if (it.b.wine || it.b.bucket) draw(it); }); };
 
     function size(it) {
       var w = Math.round(it.canvas.clientWidth * DPR), h = Math.round(it.canvas.clientHeight * DPR);
@@ -431,6 +544,10 @@
           var Hv = 2 * dist * half, yc = it.b.H / 2 - .48 * Hv;
           it.baseFrac = it.b.H / Hv + .02;
           it.cam.aspect = asp; it.cam.position.set(0, yc + dist * .1, dist); it.cam.lookAt(0, yc, 0); it.cam.updateProjectionMatrix();
+        } else if (it.b.bucket) {
+          // whole bucket in frame, camera a little above so you look down into the ice
+          var distB = Math.max((it.b.H / 2 * 1.1) / half, (it.b.R * 1.12) / (half * asp));
+          it.cam.aspect = asp; it.cam.position.set(0, distB * .12, distB); it.cam.lookAt(0, -.4, 0); it.cam.updateProjectionMatrix();
         } else {
           var dist2 = Math.max((it.b.H / 2 * 1.12) / half, (it.b.R * 1.25) / (half * asp));
           it.cam.aspect = asp; it.cam.position.set(0, 0, dist2); it.cam.lookAt(0, 0, 0); it.cam.updateProjectionMatrix();
@@ -481,13 +598,13 @@
       items.forEach(function (it) { vio.observe(it.el); });
     } else items.forEach(function (it) { it.visible = true; });
 
-    items.forEach(function (it) { it.rot = it.target = targetRot(it.el, it.b.wine); draw(it); });
+    items.forEach(function (it) { it.rot = it.target = targetRot(it.el, it.b.wine || it.b.bucket); draw(it); });
 
     (function loop() {
       items.forEach(function (it) {
         if (!it.visible) return;
-        it.target = targetRot(it.el, it.b.wine);
-        it.rot += (it.target - it.rot) * .12;       // a little inertia so it feels weighty
+        it.target = targetRot(it.el, it.b.wine || it.b.bucket);
+        it.rot +=(it.target - it.rot) * .12;       // a little inertia so it feels weighty
         draw(it);
       });
       requestAnimationFrame(loop);
