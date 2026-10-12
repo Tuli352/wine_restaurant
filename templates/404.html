@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Page not found | {{ restaurant.name }}{% endblock %}
+
+{% block content %}
+<section class="page-hero">
+  <div class="wrap">
+    <h1>We could not find that page</h1>
+    <p class="sub">The link may be old or mistyped. Try the wine list or go back home.</p>
+    <p><a class="btn" href="{{ url_for('home') }}">Back to home</a></p>
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Reserve a table | {{ restaurant.name }}{% endblock %}
+{% block description %}Reserve a table at {{ restaurant.name }}.{% endblock %}
+
+{% block content %}
+<section class="page-hero">
+  <div class="wrap">
+    <h1>Reserve a table</h1>
+    <p class="sub">Tell us when you are coming and how many of you there are. We will confirm by email.</p>
+  </div>
+</section>
+
+<section class="section reserve">
+  <div class="wrap">
+    <form id="resform" novalidate>
+      <div class="full">
+        <label for="name">Full name</label>
+        <input id="name" name="name" autocomplete="name" required>
+      </div>
+      <div class="full">
+        <label for="email">Email</label>
+        <input id="email" name="email" type="email" autocomplete="email" required>
+      </div>
+      <div>
+        <label for="date">Date</label>
+        <input id="date" name="date" type="date" min="{{ today }}" required>
+      </div>
+      <div>
+        <label for="time">Time</label>
+        <select id="time" name="time">
+          {% for t in ["17:30","18:00","18:30","19:00","19:30","20:00","20:30","21:00"] %}
+          <option {% if t == "19:30" %}selected{% endif %}>{{ t }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label for="guests">Guests</label>
+        <select id="guests" name="guests">
+          {% for n in range(1, 11) %}
+          <option value="{{ n }}" {% if n == 2 %}selected{% endif %}>{{ n }} {{ 'guest' if n == 1 else 'guests' }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="submit-wrap">
+        <button class="btn" type="submit">Reserve table</button>
+      </div>
+      <p id="msg" role="status" aria-live="polite"></p>
+    </form>
+    <p class="note light">For groups of more than 10, call {{ restaurant.phone }}.</p>
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,4 @@
+.env
+orders.json
+reservations.json
+__pycache__/

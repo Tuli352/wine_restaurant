@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block body_class %}home{% endblock %}
+
+{% block content %}
+<script>document.documentElement.classList.add("js", "js-pour");</script>
+<section class="hero" data-pour-x="0.8" data-pour-y="0.02">
+  <video id="hero-video" autoplay muted loop playsinline preload="auto" aria-hidden="true">
+    <source src="{{ url_for('static', filename='video/hero.mp4') }}" type="video/mp4">
+  </video>
+
+  <div class="hero-inner">
+    <h1><span>Pour slowly.</span><span>Stay a while.</span></h1>
+    <p class="lead">A neighbourhood wine room with a small kitchen and a cellar of 200 bottles.
+      Ask us what is open tonight.</p>
+    <div class="actions">
+      <a class="btn" href="{{ url_for('reserve') }}">Reserve a table</a>
+      <a class="btn ghost" href="{{ url_for('wines') }}">Browse the wine list</a>
+    </div>
+  </div>
+
+  <button class="video-toggle" id="video-toggle" type="button" aria-label="Pause background video">Pause video</button>
+</section>
+<section class="spots" aria-labelledby="open-tonight">
+  <h2 id="open-tonight" class="sr-only">Open tonight</h2>
+  {% for w in featured %}
+  <article class="spot{% if loop.index is even %} alt{% endif %}{% if loop.index <= 2 %} photo{% endif %}"
+           style="--bg: url('{{ url_for('static', filename='img/spot-%d.jpg'|format(loop.index)) }}')"
+           data-type="{{ w.type }}" data-name="{{ w.name }}" data-region="{{ w.region }}"
+           data-year="{{ w.year }}" data-notes="{{ w.notes }}"{% if loop.index <= 2 %}
+           data-label="{{ url_for('static', filename='img/label-%d.jpg'|format(loop.index)) }}"
+           data-cap-decal="{{ url_for('static', filename=('img/cap-decal.png' if loop.first else 'img/cap-decal-%d.png'|format(loop.index))) }}"{% endif %}>
+    <div class="spot-inner">
+      <div class="spot-text">
+        <span class="spot-num">{{ '%02d'|format(loop.index) }}.</span>
+        <h3>{{ w.name }}</h3>
+        <p class="spot-meta">{{ w.region }} &middot; {{ w.year }}</p>
+        <p class="spot-note">{{ w.notes }}</p>
+        {% if w.pairing %}<p class="spot-pair"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M7 2v7a2 2 0 0 0 1 1.7V22h2V10.7A2 2 0 0 0 11 9V2h-1v5H9V2H8v5H7V2zm9 0c-1.7 1.2-3 3.6-3 6.5 0 1.7.8 2.8 2 3.2V22h2V2z"/></svg>Pairs well with {{ w.pairing }}</p>{% endif %}
+        <p class="price">{{ w.price|kes }}</p>
+        <a class="btn ghost small" href="{{ url_for('wines') }}#wine-{{ w.id }}">View details &rarr;</a>
+      </div>
+      <div class="spot-bottle" aria-hidden="true">{% if loop.index <= 2 %}<img class="spot-fallback" src="{{ url_for('static', filename='img/bottle-%d.png'|format(loop.index)) }}" alt="">{% endif %}<canvas></canvas></div>
+    </div>
+  </article>
+  {% endfor %}
+</section>
+
+<section class="section split">
+  <div class="split-text">
+    <h2>A small kitchen that cooks for the glass</h2>
+    <p>Every dish on our menu is written around a bottle. Order a plate and we will suggest the wine
+      that suits it, or pick a wine and let the kitchen guide you.</p>
+    <p><a class="btn dark" href="{{ url_for('menu') }}">See the food menu</a></p>
+  </div>
+</section>
+
+<section class="cta">
+  <div class="wrap">
+    <h2>Book your evening</h2>
+    <p class="sub">Tables for 1 to 10 guests, Tuesday to Sunday.</p>
+    <p><a class="btn" href="{{ url_for('reserve') }}">Reserve a table</a></p>
+  </div>
+</section>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+{% endblock %}

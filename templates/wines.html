@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Wine list | {{ restaurant.name }}{% endblock %}
+{% block description %}Browse our wine list by style, with tasting notes and food pairings.{% endblock %}
+
+{% block content %}
+<section class="page-hero">
+  <div class="wrap">
+    <h1>The wine list</h1>
+    <p class="sub">Choose a style to filter. Select a wine to read the tasting notes and what to eat with it.</p>
+  </div>
+</section>
+
+<section class="section">
+  <div class="wrap">
+    <div class="filters" role="group" aria-label="Filter wines by style">
+      {% for key, label in types %}
+      <button class="chip" type="button" data-filter="{{ key }}" aria-pressed="{{ 'true' if loop.first else 'false' }}">{{ label }}</button>
+      {% endfor %}
+    </div>
+    <p class="count" id="count" aria-live="polite"></p>
+
+    <div id="wine-list">
+      {% for w in wines %}
+      <article class="wine" id="wine-{{ w.id }}" data-type="{{ w.type }}">
+        <button class="row" type="button" aria-expanded="false" aria-controls="detail-{{ w.id }}">
+          <span class="dot {{ w.type }}"></span>
+          <span>
+            <span class="wname">{{ w.name }}</span>
+            <span class="wmeta">{{ w.region }}, {{ w.year }}</span>
+          </span>
+          <span class="price">{{ w.price|kes }}</span>
+        </button>
+        <div class="detail" id="detail-{{ w.id }}">
+          <div>
+            <p><strong>Tasting notes:</strong> {{ w.notes }}<br><strong>Pairs with:</strong> {{ w.pairing }}</p>
+            <div class="detail-actions">
+              <button class="btn dark small" type="button" data-add="w{{ w.id }}">Add bottle to cart</button>
+            </div>
+          </div>
+        </div>
+      </article>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endblock %}

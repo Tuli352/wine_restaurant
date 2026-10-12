@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Our story | {{ restaurant.name }}{% endblock %}
+{% block description %}How {{ restaurant.name }} started and what to expect when you visit.{% endblock %}
+
+{% block content %}
+<section class="page-hero">
+  <div class="wrap">
+    <h1>Our story</h1>
+    <p class="sub">A cellar, a small kitchen and a long table.</p>
+  </div>
+</section>
+
+<section class="section split">
+  <div class="split-media">
+    <img src="{{ url_for('static', filename='img/hero-poster.jpg') }}" alt="Red wine being poured into a glass" loading="lazy">
+  </div>
+  <div class="split-text">
+    <h2>Wine first, then dinner</h2>
+    <p>We opened {{ restaurant.name }} to make good wine easy to enjoy. The cellar holds about 200 bottles
+      from small growers, and most are available by the glass.</p>
+    <p>The kitchen keeps the menu short and changes it with the seasons, so every plate has a wine
+      worth pouring alongside it.</p>
+  </div>
+</section>
+
+<section class="section">
+  <div class="wrap visit">
+    <div>
+      <h2>Visit us</h2>
+      <p>{{ restaurant.address }}</p>
+      <p>{{ restaurant.hours }}</p>
+    </div>
+    <div>
+      <h2>Good to know</h2>
+      <p>Walk-ins are welcome at the bar. Tables for the dining room are best booked ahead.</p>
+      <p><a class="btn dark" href="{{ url_for('reserve') }}">Reserve a table</a></p>
+    </div>
+  </div>
+</section>
+{% endblock %}

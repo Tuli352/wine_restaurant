@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}Your cart | {{ restaurant.name }}{% endblock %}
+{% block description %}Review your order and pay with M-Pesa.{% endblock %}
+
+{% block content %}
+<section class="page-hero">
+  <div class="wrap">
+    <h1>Your cart</h1>
+    <p class="sub">Check your order, then pay with M-Pesa. You will get a prompt on your phone.</p>
+  </div>
+</section>
+
+<section class="section">
+  <div class="wrap cart-layout">
+    <div>
+      <div id="cart-items"></div>
+      <div class="cart-total" id="cart-total" hidden>
+        <span>Total</span><strong id="cart-total-amount"></strong>
+      </div>
+      <div class="cart-empty" id="cart-empty" hidden>
+        <p>Your cart is empty. Add a bottle from the wine list or a dish from the menu.</p>
+        <a class="btn dark" href="{{ url_for('wines') }}">Browse the wine list</a>
+        <a class="btn dark" href="{{ url_for('menu') }}">See the food menu</a>
+      </div>
+    </div>
+
+    <aside class="checkout" id="checkout" hidden>
+      <div id="pay-panel">
+        <h2>Pay with M-Pesa</h2>
+        {% if mpesa_mode == 'mock' %}
+        <p class="test-banner">Test mode: no real payment is taken. Use a number ending in 0000 to simulate a cancelled payment.</p>
+        {% endif %}
+        <form id="payform" novalidate>
+          <div class="full">
+            <label for="cname">Full name</label>
+            <input id="cname" name="name" autocomplete="name" required>
+          </div>
+          <div class="full">
+            <label for="cphone">M-Pesa phone number</label>
+            <input id="cphone" name="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="0712 345 678" required aria-describedby="phone-hint">
+            <p class="hint" id="phone-hint">We send the payment prompt to this number.</p>
+          </div>
+          <div class="full">
+            <label for="cnote">Table or note (optional)</label>
+            <input id="cnote" name="note" maxlength="200" placeholder="Table 4, or collect from the bar">
+          </div>
+          <div class="full">
+            <button class="btn" id="pay-btn" type="submit">Pay with M-Pesa</button>
+          </div>
+          <p id="msg" role="status" aria-live="polite"></p>
+        </form>
+      </div>
+
+      <div class="done" id="done" hidden>
+        <h2>Payment received</h2>
+        <p>Thank you. Your order <strong id="done-order"></strong> is with the kitchen and the bar.</p>
+        <p>M-Pesa receipt: <strong id="done-receipt">on its way by SMS</strong></p>
+        <a class="btn" href="{{ url_for('home') }}">Back to home</a>
+      </div>
+    </aside>
+  </div>
+</section>
+{% endblock %}
